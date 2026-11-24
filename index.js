@@ -4,91 +4,146 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-const PREFIX = "!";
+const PORT = process.env.PORT || 3000;
 
-const config = {
-  name: "FindHelp",
-  version: "1.0.0",
-  aiTrigger: ["findhelp", "@findhelp"]
-};
+const BOT_NAME = "FindHelp";
+const VERSION = "1.1.0";
 
-// Basic health check for hosting
+const RULES = [
+  "Be respectful to everyone.",
+  "No harassment or bullying.",
+  "No dangerous or illegal activities.",
+  "No spam or scams.",
+  "Keep personal information private."
+];
+
+const commands = [
+  "!Ban @user",
+  "!Kick @user",
+  "!Unban @user",
+  "!Mute @user",
+  "!Warn @user",
+  "!Rules",
+  "!Help",
+  "!Info"
+];
+
+// Home route
 app.get("/", (req, res) => {
-  res.send("FindHelp is online!");
+  res.send(`${BOT_NAME} is online!`);
 });
 
-// Incoming message handler
+// Command and message handler
 app.post("/message", async (req, res) => {
   try {
     const { message, sender, isAdmin } = req.body;
 
     if (!message || !sender) {
       return res.status(400).json({
-        error: "Missing message or sender"
+        error: "Message and sender are required."
       });
     }
 
     const text = message.trim();
     const lower = text.toLowerCase();
 
-    // Admin commands
-    if (lower.startsWith("!ban ")) {
-      if (!isAdmin) {
-        return res.json({
-          reply: "Only group administrators can use this command."
-        });
-      }
-
+    // HELP
+    if (lower === "!help") {
       return res.json({
-        action: "BAN_REQUEST",
-        target: text.slice(5).trim(),
-        reply: "Ban request received. WhatsApp integration required."
+        reply:
+          "🤖 FindHelp Commands\n\n" +
+          commands.join("\n") +
+          "\n\nAI: Mention FindHelp or @FindHelp."
       });
     }
 
+    // INFO
+    if (lower === "!info") {
+      return res.json({
+        reply:
+          `🤖 ${BOT_NAME}\n` +
+          `Version: ${VERSION}\n` +
+          "AI Group Assistant and Safety Moderator."
+      });
+    }
+
+    // RULES
     if (lower === "!rules") {
       return res.json({
-        reply: "Group rules: Be respectful, avoid spam, and keep everyone safe."
+        reply: "📜 GROUP RULES\n\n" +
+          RULES.map((rule, i) => `${i + 1}. ${rule}`).join("\n")
       });
     }
 
-    if (lower.startsWith("!warn ")) {
+    // ADMIN COMMANDS
+    const match = text.match(
+      /^!(ban|kick|unban|mute|warn)\s+(.+)$/i
+    );
+
+    if (match) {
+      const action = match[1].toLowerCase();
+      const target = match[2].trim();
+
       if (!isAdmin) {
         return res.json({
-          reply: "Only group administrators can use this command."
+          reply: "⛔ Only group administrators can use this command."
         });
       }
 
+      if (!target) {
+        return res.json({
+          reply: "Please specify a valid member."
+        });
+      }
+
+      const actionNames = {
+        ban: "BAN",
+        kick: "KICK",
+        unban: "UNBAN",
+        mute: "MUTE",
+        warn: "WARN"
+      };
+
       return res.json({
-        action: "WARN_REQUEST",
-        target: text.slice(6).trim()
+        action: `${actionNames[action]}_REQUEST`,
+        target,
+        reply:
+          `✅ ${action.toUpperCase()} request received for ${target}.\n` +
+          "WhatsApp moderation integration is required to execute it."
       });
     }
 
-    // AI activation only when mentioned
-    const mentioned = config.aiTrigger.some(trigger =>
-      lower.includes(trigger)
-    );
+    // AI ACTIVATION
+    const mentionsBot =
+      /\bfindhelp\b/i.test(text) ||
+      /@findhelp/i.test(text);
 
-    if (!mentioned) {
-      return res.json({ ignored: true });
+    if (!mentionsBot) {
+      return res.json({
+        ignored: true
+      });
     }
 
     return res.json({
-      reply: "Hello! I'm FindHelp. My AI connection is not configured yet, but I'm ready to help!"
+      aiRequest: true,
+      sender,
+      prompt: text,
+      reply:
+        "Hello! I'm FindHelp. My AI connection is being configured. " +
+        "I'll be ready to answer your questions soon!"
     });
 
   } catch (error) {
-    console.error("FindHelp error:", error);
+    console.error("FindHelp Error:", error);
 
-    res.status(500).json({
-      error: "Internal server error"
+    return res.status(500).json({
+      error: "FindHelp encountered an internal error."
     });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log(`FindHelp is running on port ${PORT}`);
+  console.log(
+    `${BOT_NAME} v${VERSION} is running on port ${PORT}`
+  );
 });
