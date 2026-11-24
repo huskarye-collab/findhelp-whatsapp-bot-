@@ -1,0 +1,13 @@
+
+{
+  "name": "findhelp-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "FindHelp - AI WhatsApp Group Assistant",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
