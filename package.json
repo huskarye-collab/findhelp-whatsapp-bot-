@@ -1,6 +1,6 @@
 
 {
-  "name": "findhelp-whatsapp-bot",
+  "name": "findhelp",
   "version": "2.0.0",
   "description": "FindHelp AI WhatsApp Assistant",
   "main": "index.js",
@@ -13,3 +13,4 @@
     "@google/genai": "latest"
   }
 }
+
