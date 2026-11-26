@@ -6,7 +6,7 @@ app.use(express.json({ limit: "20kb" }));
 
 const PORT = process.env.PORT || 3000;
 const BOT_NAME = "FindHelp";
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -110,6 +110,16 @@ app.get("/", (req, res) => {
   res.send(`${BOT_NAME} v${VERSION} is online!`);
 });
 
+// HEALTH CHECK
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", bot: BOT_NAME, version: VERSION });
+});
+
+// VERSION INFO
+app.get("/version", (req, res) => {
+  res.json({ name: BOT_NAME, version: VERSION });
+});
+
 // MESSAGE HANDLER
 app.post("/message", async (req, res) => {
   try {
@@ -125,7 +135,10 @@ app.post("/message", async (req, res) => {
     if (
       typeof message !== "string" ||
       typeof sender !== "string" ||
-      message.length > 4000
+      message.trim().length === 0 ||
+      sender.trim().length === 0 ||
+      message.length > 4000 ||
+      sender.length > 200
     ) {
       return res.status(400).json({
         error: "Invalid message or sender."
