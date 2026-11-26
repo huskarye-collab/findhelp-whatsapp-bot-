@@ -1,4 +1,4 @@
-// FindHelp v2.0 update
+
 const express = require("express");
 const OpenAI = require("openai");
 
