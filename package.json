@@ -1,7 +1,6 @@
-
 {
   "name": "findhelp",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "FindHelp AI WhatsApp Assistant",
   "main": "index.js",
   "scripts": {
@@ -10,7 +9,10 @@
   "dependencies": {
     "express": "^4.21.2",
     "openai": "^5.0.0",
-    "@google/genai": "latest"
+    "@google/genai": "latest",
+    "@messagebird/sdk": "^0.136.2"
+  },
+  "engines": {
+    "node": ">=20.3.0"
   }
 }
-
