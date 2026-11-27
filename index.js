@@ -12,7 +12,7 @@ app.use(express.json({
 
 const PORT = process.env.PORT || 3000;
 const BOT_NAME = "FindHelp";
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 const GRAPH_API_VERSION = process.env.WHATSAPP_API_VERSION || "v23.0";
 
 const openai = process.env.OPENAI_API_KEY
