@@ -215,6 +215,61 @@ app.get("/version", (req, res) => {
   res.json({ name: BOT_NAME, version: VERSION });
 });
 
+// Bird API: send one approved WhatsApp template to the configured test recipient.
+// Keep BIRD_API_KEY and BIRD_SEND_ENDPOINT_SECRET in Railway Variables, never in source code.
+async function sendBirdTestTemplate() {
+  if (!process.env.BIRD_API_KEY) {
+    throw new Error("BIRD_API_KEY is not configured");
+  }
+  if (!process.env.BIRD_TEST_TO) {
+    throw new Error("BIRD_TEST_TO is not configured");
+  }
+
+  // Bird's SDK is ESM-only; dynamic import keeps this CommonJS app compatible.
+  const { BirdClient } = await import("@messagebird/sdk");
+  const bird = new BirdClient({ apiKey: process.env.BIRD_API_KEY });
+
+  return bird.whatsapp.send({
+    to: process.env.BIRD_TEST_TO,
+    template: {
+      slug: "bird_delivery_update",
+      parameters: {
+        ref: "FH-TEST-001",
+        date: new Date().toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        })
+      }
+    }
+  });
+}
+
+app.post("/bird/test-send", async (req, res) => {
+  const endpointSecret = process.env.BIRD_SEND_ENDPOINT_SECRET;
+  const authorization = req.get("authorization") || "";
+
+  if (!endpointSecret || authorization !== `Bearer ${endpointSecret}`) {
+    return res.sendStatus(401);
+  }
+
+  try {
+    const message = await sendBirdTestTemplate();
+    return res.status(202).json({
+      ok: true,
+      messageId: message.id,
+      status: message.status
+    });
+  } catch (error) {
+    console.error("Bird WhatsApp send error:", error.message);
+    return res.status(502).json({
+      ok: false,
+      error: "Bird could not accept the test message. Check the Railway variables and Bird template setup."
+    });
+  }
+});
+
+
 // Meta webhook verification
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
