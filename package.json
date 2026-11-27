@@ -13,6 +13,6 @@
     "@messagebird/sdk": "^0.136.2"
   },
   "engines": {
-    "node": ">=20.3.0"
+    "node": ">=22.0.0"
   }
 }
