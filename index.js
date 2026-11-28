@@ -245,6 +245,106 @@ async function sendBirdTestTemplate() {
   });
 }
 
+// Private admin page. Set BIRD_ADMIN_PASSWORD in Railway Variables before using it.
+function isAuthorizedAdmin(req) {
+  const expectedPassword = process.env.BIRD_ADMIN_PASSWORD;
+  const header = req.get("authorization") || "";
+  if (!expectedPassword || !header.startsWith("Basic ")) return false;
+
+  let decoded;
+  try {
+    decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+  } catch {
+    return false;
+  }
+
+  const separator = decoded.indexOf(":");
+  if (separator < 0 || decoded.slice(0, separator) !== "admin") return false;
+
+  const supplied = Buffer.from(decoded.slice(separator + 1));
+  const expected = Buffer.from(expectedPassword);
+  return supplied.length === expected.length &&
+    crypto.timingSafeEqual(supplied, expected);
+}
+
+function requireAdmin(req, res, next) {
+  if (!isAuthorizedAdmin(req)) {
+    res.set("WWW-Authenticate", 'Basic realm="FindHelp Admin", charset="UTF-8"');
+    return res.status(401).send("Admin login required.");
+  }
+  next();
+}
+
+app.get("/admin", requireAdmin, (req, res) => {
+  res.set({
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer"
+  });
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FindHelp Admin</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#101827;color:#f4f7fb;margin:0;min-height:100vh;display:grid;place-items:center}
+main{width:min(92%,480px);background:#1b2940;padding:28px;border-radius:18px;box-sizing:border-box}
+h1{margin-top:0}p{color:#c5d0df;line-height:1.5}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#5b8cff;color:white;font-size:16px;font-weight:700}
+button:disabled{opacity:.6}
+#status{margin-top:18px;overflow-wrap:anywhere}
+</style>
+</head>
+<body><main>
+<h1>FindHelp Admin</h1>
+<p>Private diagnostic tool. The button sends one approved Bird test template to the recipient configured in Railway.</p>
+<button id="send" type="button">Send Test WhatsApp</button>
+<p id="status" role="status" aria-live="polite">Ready. No message has been sent.</p>
+</main>
+<script>
+const button=document.getElementById("send");
+const status=document.getElementById("status");
+button.addEventListener("click",async()=>{
+  if(!confirm("Send one test WhatsApp message to the recipient configured in Railway?")) return;
+  button.disabled=true; status.textContent="Sending test message…";
+  try{
+    const response=await fetch("/admin/test-send",{method:"POST",headers:{"Accept":"application/json"}});
+    const result=await response.json().catch(()=>({}));
+    if(response.ok&&result.ok){
+      status.textContent="Bird accepted the test message. Message ID: "+(result.messageId||"not provided")+". Status: "+(result.status||"accepted")+".";
+    }else{
+      status.textContent="Test failed (HTTP "+response.status+"). "+(result.error||"Check Railway deployment logs and Bird settings.");
+    }
+  }catch(error){status.textContent="Request failed. Check your connection and try again.";}
+  finally{button.disabled=false;}
+});
+</script>
+</body></html>`);
+});
+
+app.post("/admin/test-send", requireAdmin, async (req, res) => {
+  // Reject cross-origin requests so a logged-in browser cannot be tricked into sending.
+  const allowedOrigin = "https://findhelp-whatsapp-bot-production.up.railway.app";
+  if (req.get("origin") !== allowedOrigin) return res.sendStatus(403);
+
+  try {
+    const message = await sendBirdTestTemplate();
+    return res.status(202).json({
+      ok: true,
+      messageId: message.id,
+      status: message.status
+    });
+  } catch (error) {
+    console.error("Bird WhatsApp send error:", error.message);
+    return res.status(502).json({
+      ok: false,
+      error: "Bird could not accept the test message. Check Railway variables and Bird template setup."
+    });
+  }
+});
+
 app.post("/bird/test-send", async (req, res) => {
   const endpointSecret = process.env.BIRD_SEND_ENDPOINT_SECRET;
   const authorization = req.get("authorization") || "";
